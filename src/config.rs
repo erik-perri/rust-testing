@@ -51,3 +51,98 @@ pub fn parse_arguments(args: Vec<String>) -> Result<NodeConfig, String> {
 
     Ok(NodeConfig { port })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_arguments_long() {
+        let args = vec![String::from("binary_name"), String::from("--port=1234")];
+
+        let config = parse_arguments(args).unwrap();
+
+        assert_eq!(config.port, 1234);
+    }
+
+    #[test]
+    fn test_parse_arguments_long_with_space() {
+        let args = vec![
+            String::from("binary_name"),
+            String::from("--port"),
+            String::from("1234"),
+        ];
+
+        let config = parse_arguments(args).unwrap();
+
+        assert_eq!(config.port, 1234);
+    }
+
+    #[test]
+    fn test_parse_arguments_short() {
+        let args = vec![
+            String::from("binary_name"),
+            String::from("-p"),
+            String::from("1234"),
+        ];
+
+        let config = parse_arguments(args).unwrap();
+
+        assert_eq!(config.port, 1234);
+    }
+
+    #[test]
+    fn test_parse_arguments_no_port() {
+        let args = vec![String::from("binary_name")];
+
+        let config = parse_arguments(args).unwrap();
+
+        assert_eq!(config.port, 16600);
+    }
+
+    #[test]
+    fn test_parse_arguments_missing_port_long() {
+        let args = vec![String::from("binary_name"), String::from("--port")];
+
+        let config = parse_arguments(args);
+
+        assert!(config.is_err());
+        assert_eq!(config.err().unwrap(), "No port number provided.");
+    }
+
+    #[test]
+    fn test_parse_arguments_missing_port_short() {
+        let args = vec![String::from("binary_name"), String::from("-p")];
+
+        let config = parse_arguments(args);
+
+        assert!(config.is_err());
+        assert_eq!(config.err().unwrap(), "No port number provided.");
+    }
+
+    #[test]
+    fn test_parse_arguments_invalid_port() {
+        let args = vec![String::from("binary_name"), String::from("--port=invalid")];
+
+        let config = parse_arguments(args);
+
+        assert!(config.is_err());
+        assert_eq!(
+            config.err().unwrap(),
+            "Invalid port number provided \"invalid\", invalid digit found in string."
+        );
+    }
+
+    #[test]
+    fn test_parse_arguments_invalid_argument() {
+        let args = vec![String::from("binary_name"), String::from("--invalid")];
+
+        let config = parse_arguments(args);
+
+        assert!(config.is_err());
+        assert_eq!(
+            config.err().unwrap(),
+            "Invalid argument provided: \"--invalid\""
+        );
+    }
+}
