@@ -45,7 +45,7 @@ fn main() {
         io::stdin().read_line(&mut input).unwrap();
 
         match input.trim() {
-            "exit" | "quit" | 1 => break,
+            "exit" | "quit" => break,
             "" => output_line("".to_string()),
             _ => output_line(format!("Invalid command: {}", input.trim())),
         }
