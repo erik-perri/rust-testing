@@ -129,7 +129,7 @@ mod tests {
         assert!(config.is_err());
         assert_eq!(
             config.err().unwrap(),
-            "Invalid port number provided \"invalid\", invalid digit found in string."
+            "Invalid port number provided \"invalid\", invalid digit found in string"
         );
     }
 
