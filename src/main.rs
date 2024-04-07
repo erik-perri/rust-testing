@@ -4,9 +4,20 @@ use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 
 mod config;
+mod node_state;
 mod terminal;
 
 fn main() {
+    const NODE_STATE_FILE: &str = "state.toml";
+
+    let node_state = match node_state::get_state(NODE_STATE_FILE) {
+        Ok(node_state) => node_state,
+        Err(error) => {
+            eprintln!("{}", error);
+            std::process::exit(1);
+        }
+    };
+
     let args: Vec<String> = env::args().collect();
     let config = match config::parse_arguments(args) {
         Ok(config) => config,
@@ -26,7 +37,10 @@ fn main() {
     thread::spawn(move || {
         let bind_address = format!("0.0.0.0:{}", config.port);
 
-        terminal.output(format!("Node listening on {}", bind_address));
+        terminal.output(format!(
+            "Node [{}] listening on {}",
+            node_state.node_id, bind_address,
+        ));
 
         let listener = TcpListener::bind(bind_address).unwrap();
 
