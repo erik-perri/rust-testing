@@ -17,16 +17,19 @@ impl OutputBuffer {
     pub fn new() -> Self {
         let (sender, receiver): (mpsc::Sender<String>, mpsc::Receiver<String>) = mpsc::channel();
 
-        thread::spawn(move || {
-            for message in receiver.iter() {
-                if !message.is_empty() {
-                    println!("\r{}", message);
-                }
+        thread::spawn(move || loop {
+            let message = match receiver.recv() {
+                Ok(message) => message,
+                Err(_) => break,
+            };
 
-                print!("> ");
-
-                io::stdout().flush().unwrap();
+            if !message.is_empty() {
+                println!("\r{}", message);
             }
+
+            print!("> ");
+
+            io::stdout().flush().unwrap();
         });
 
         OutputBuffer { sender }
