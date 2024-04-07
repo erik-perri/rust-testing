@@ -59,15 +59,15 @@ impl Server {
                         ));
                     }
                     Err(error) => {
-                        if error.kind() == io::ErrorKind::WouldBlock {
-                            if !is_running.load(std::sync::atomic::Ordering::Relaxed) {
-                                break;
-                            }
-                        } else {
+                        if error.kind() != io::ErrorKind::WouldBlock {
                             logger
                                 .lock()
                                 .unwrap()
                                 .output(format!("Failed to accept connection: {}", error));
+                        }
+
+                        if !is_running.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
                         }
 
                         sleep(std::time::Duration::from_millis(50));
