@@ -25,6 +25,7 @@ impl Terminal {
                 let parts: Vec<&str> = input.split_whitespace().collect();
 
                 if parts.is_empty() {
+                    logger.lock().unwrap().output("".to_string());
                     continue;
                 }
 
@@ -34,9 +35,6 @@ impl Terminal {
                     "exit" | "quit" => {
                         is_running.store(false, std::sync::atomic::Ordering::Relaxed);
                         break;
-                    }
-                    "" => {
-                        logger.lock().unwrap().output("".to_string());
                     }
                     _ => {
                         logger
