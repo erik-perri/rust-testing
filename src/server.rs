@@ -3,8 +3,8 @@ use crate::OutputWriter;
 use std::net::TcpListener;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::thread::JoinHandle;
+use std::thread::{sleep, JoinHandle};
+use std::{io, thread};
 
 pub struct Server {
     pub bind_address: String,
@@ -36,6 +36,10 @@ impl Server {
             )
         })?;
 
+        listener
+            .set_nonblocking(true)
+            .map_err(|error| format!("Failed to set non-blocking: {}", error))?;
+
         let logger = Arc::clone(&self.logger);
         let node_id = node_state.node_id.clone();
         let bind_address = bind_address.clone();
@@ -47,27 +51,29 @@ impl Server {
                 .output(format!("Node [{}] listening on {}", node_id, bind_address,));
 
             for stream in listener.incoming() {
-                // TODO Pull in a library for non-blocking IO so we can check this regularly
-                //      and not only on new connections
-                if !is_running.load(std::sync::atomic::Ordering::Relaxed) {
-                    break;
-                }
-
-                let stream = match stream {
-                    Ok(stream) => stream,
+                match stream {
+                    Ok(stream) => {
+                        logger.lock().unwrap().output(format!(
+                            "Connection established to {}",
+                            stream.peer_addr().unwrap()
+                        ));
+                    }
                     Err(error) => {
-                        logger
-                            .lock()
-                            .unwrap()
-                            .output(format!("Failed to accept connection: {}", error));
+                        if error.kind() == io::ErrorKind::WouldBlock {
+                            if !is_running.load(std::sync::atomic::Ordering::Relaxed) {
+                                break;
+                            }
+                        } else {
+                            logger
+                                .lock()
+                                .unwrap()
+                                .output(format!("Failed to accept connection: {}", error));
+                        }
+
+                        sleep(std::time::Duration::from_millis(50));
                         continue;
                     }
                 };
-
-                logger.lock().unwrap().output(format!(
-                    "Connection established to {}",
-                    stream.peer_addr().unwrap()
-                ));
             }
         }))
     }

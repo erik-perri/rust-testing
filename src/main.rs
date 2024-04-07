@@ -43,7 +43,7 @@ fn main() {
     let is_running = Arc::new(AtomicBool::new(true));
 
     let terminal_handle = terminal.start(&is_running);
-    let _ = match server.start(&is_running, &node_state) {
+    let server_handle = match server.start(&is_running, &node_state) {
         Ok(handle) => handle,
         Err(error) => {
             eprintln!("\nFailed to start server: {}", error);
@@ -52,7 +52,5 @@ fn main() {
     };
 
     terminal_handle.join().unwrap();
-
-    // We can't wait for this until we use a non-blocking IO library
-    // server_handle.unwrap().join().unwrap();
+    server_handle.join().unwrap();
 }
