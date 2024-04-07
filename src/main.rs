@@ -3,24 +3,21 @@ use std::net::TcpListener;
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 
-mod config;
+mod arguments;
 mod node_state;
 mod terminal;
 
 fn main() {
-    const NODE_STATE_FILE: &str = "state.toml";
-
-    let node_state = match node_state::get_state(NODE_STATE_FILE) {
-        Ok(node_state) => node_state,
+    let arguments = match arguments::parse_arguments(env::args().collect()) {
+        Ok(config) => config,
         Err(error) => {
-            eprintln!("{}", error);
+            eprintln!("Failed to parse arguments: {}", error);
             std::process::exit(1);
         }
     };
 
-    let args: Vec<String> = env::args().collect();
-    let config = match config::parse_arguments(args) {
-        Ok(config) => config,
+    let node_state = match node_state::get_state(&arguments.state_file) {
+        Ok(node_state) => node_state,
         Err(error) => {
             eprintln!("{}", error);
             std::process::exit(1);
@@ -35,7 +32,7 @@ fn main() {
     terminal.listen_for_commands(&is_running);
 
     thread::spawn(move || {
-        let bind_address = format!("0.0.0.0:{}", config.port);
+        let bind_address = format!("0.0.0.0:{}", arguments.port);
 
         terminal.output(format!(
             "Node [{}] listening on {}",

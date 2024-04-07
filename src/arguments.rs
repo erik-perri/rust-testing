@@ -1,8 +1,9 @@
-pub struct NodeConfig {
+pub struct Arguments {
     pub port: u16,
+    pub state_file: String,
 }
 
-pub fn parse_arguments(args: Vec<String>) -> Result<NodeConfig, String> {
+pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
     let args: Vec<String> = args
         .into_iter()
         // Skip past the binary name
@@ -17,6 +18,8 @@ pub fn parse_arguments(args: Vec<String>) -> Result<NodeConfig, String> {
         .collect();
 
     let mut port: u16 = 16600;
+    let mut state_file = String::from("state.toml");
+
     let mut current_index = 0;
 
     while current_index < args.len() {
@@ -41,6 +44,15 @@ pub fn parse_arguments(args: Vec<String>) -> Result<NodeConfig, String> {
 
                 current_index += 1;
             }
+            "-s" | "--state" => {
+                if current_index + 1 >= args.len() {
+                    return Err("No state file provided.".to_string());
+                }
+
+                state_file = args[current_index + 1].clone();
+
+                current_index += 1;
+            }
             _ => {
                 return Err(format!("Invalid argument provided: \"{}\"", arg));
             }
@@ -49,7 +61,7 @@ pub fn parse_arguments(args: Vec<String>) -> Result<NodeConfig, String> {
         current_index += 1;
     }
 
-    Ok(NodeConfig { port })
+    Ok(Arguments { port, state_file })
 }
 
 #[cfg(test)]
@@ -58,11 +70,16 @@ mod tests {
 
     #[test]
     fn test_parse_arguments_long() {
-        let args = vec![String::from("binary_name"), String::from("--port=1234")];
+        let args = vec![
+            String::from("binary_name"),
+            String::from("--port=1234"),
+            String::from("--state=override.toml"),
+        ];
 
         let config = parse_arguments(args).unwrap();
 
         assert_eq!(config.port, 1234);
+        assert_eq!(config.state_file, "override.toml");
     }
 
     #[test]
@@ -71,11 +88,14 @@ mod tests {
             String::from("binary_name"),
             String::from("--port"),
             String::from("1234"),
+            String::from("--state"),
+            String::from("override.toml"),
         ];
 
         let config = parse_arguments(args).unwrap();
 
         assert_eq!(config.port, 1234);
+        assert_eq!(config.state_file, "override.toml");
     }
 
     #[test]
@@ -84,20 +104,24 @@ mod tests {
             String::from("binary_name"),
             String::from("-p"),
             String::from("1234"),
+            String::from("-s"),
+            String::from("override.toml"),
         ];
 
         let config = parse_arguments(args).unwrap();
 
         assert_eq!(config.port, 1234);
+        assert_eq!(config.state_file, "override.toml");
     }
 
     #[test]
-    fn test_parse_arguments_no_port() {
+    fn test_parse_arguments_none() {
         let args = vec![String::from("binary_name")];
 
         let config = parse_arguments(args).unwrap();
 
         assert_eq!(config.port, 16600);
+        assert_eq!(config.state_file, "state.toml");
     }
 
     #[test]
