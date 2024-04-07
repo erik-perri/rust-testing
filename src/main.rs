@@ -43,10 +43,13 @@ fn main() {
     let is_running = Arc::new(AtomicBool::new(true));
 
     let terminal_handle = terminal.start(&is_running);
-    let _ = server.start(&is_running, &node_state).map_err(|error| {
-        eprintln!("\nFailed to start server: {}", error);
-        std::process::exit(1);
-    });
+    let _ = match server.start(&is_running, &node_state) {
+        Ok(handle) => handle,
+        Err(error) => {
+            eprintln!("\nFailed to start server: {}", error);
+            std::process::exit(1);
+        }
+    };
 
     terminal_handle.join().unwrap();
 
