@@ -1,28 +1,20 @@
-use std::io::{self, Write};
-use std::sync::{atomic::AtomicBool, mpsc, Arc, Mutex};
+use crate::OutputWriter;
+use std::io;
+use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-pub enum TerminalMessage {
-    Command(String),
-    Output(String),
-}
-
 pub struct Terminal {
-    receiver: Arc<Mutex<mpsc::Receiver<TerminalMessage>>>,
-    pub sender: mpsc::Sender<TerminalMessage>,
+    logger: Arc<Mutex<dyn OutputWriter + Send>>,
 }
 
 impl Terminal {
-    pub fn new() -> Terminal {
-        let (sender, receiver) = mpsc::channel();
-        let receiver = Arc::new(Mutex::new(receiver));
-
-        Terminal { receiver, sender }
+    pub fn new(logger: Arc<Mutex<dyn OutputWriter + Send>>) -> Self {
+        Terminal { logger }
     }
 
-    pub fn listen_for_commands(&self, is_running: &Arc<AtomicBool>) {
+    pub fn start(&self, is_running: &Arc<AtomicBool>) -> JoinHandle<()> {
         let is_running = Arc::clone(&is_running);
-        let sender = self.sender.clone();
+        let logger = Arc::clone(&self.logger);
 
         thread::spawn(move || {
             while is_running.load(std::sync::atomic::Ordering::Relaxed) {
@@ -30,52 +22,27 @@ impl Terminal {
 
                 io::stdin().read_line(&mut input).unwrap();
 
-                sender
-                    .send(TerminalMessage::Command(input.trim().to_string()))
-                    .unwrap()
-            }
-        });
-    }
+                let parts: Vec<&str> = input.split_whitespace().collect();
 
-    pub(crate) fn output(&self, message: String) {
-        self.sender.send(TerminalMessage::Output(message)).unwrap()
-    }
+                if parts.is_empty() {
+                    continue;
+                }
 
-    pub fn start(&self, is_running: &Arc<AtomicBool>) -> JoinHandle<()> {
-        let is_running = Arc::clone(&is_running);
-        let receiver = Arc::clone(&self.receiver);
-        let sender = self.sender.clone();
+                let command = parts[0];
 
-        thread::spawn(move || {
-            let receiver = receiver.lock().unwrap();
-
-            for message in receiver.iter() {
-                match message {
-                    TerminalMessage::Command(input) => match input.trim() {
-                        "exit" | "quit" => {
-                            is_running.store(false, std::sync::atomic::Ordering::Relaxed);
-                            break;
-                        }
-                        "" => sender
-                            .send(TerminalMessage::Output("".to_string()))
-                            .unwrap(),
-                        _ => {
-                            sender
-                                .send(TerminalMessage::Output(format!(
-                                    "Invalid command: {}",
-                                    input
-                                )))
-                                .unwrap();
-                        }
-                    },
-                    TerminalMessage::Output(message) => {
-                        if !message.is_empty() {
-                            println!("\r{}", message);
-                        }
-
-                        print!("> ");
-
-                        io::stdout().flush().unwrap();
+                match command {
+                    "exit" | "quit" => {
+                        is_running.store(false, std::sync::atomic::Ordering::Relaxed);
+                        break;
+                    }
+                    "" => {
+                        logger.lock().unwrap().output("".to_string());
+                    }
+                    _ => {
+                        logger
+                            .lock()
+                            .unwrap()
+                            .output(format!("Invalid command: {}", command));
                     }
                 }
             }
