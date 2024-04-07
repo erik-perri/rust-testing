@@ -1,4 +1,5 @@
 pub struct Arguments {
+    pub bind_address: String,
     pub port: u16,
     pub state_file: String,
 }
@@ -19,6 +20,7 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
 
     let mut port: u16 = 16600;
     let mut state_file = String::from("state.toml");
+    let mut bind_address = String::from("0.0.0.0");
 
     let mut current_index = 0;
 
@@ -26,6 +28,15 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
         let arg = &args[current_index];
 
         match arg.as_str().trim() {
+            "-b" | "--bind-address" => {
+                if current_index + 1 >= args.len() {
+                    return Err("No bind address provided.".to_string());
+                }
+
+                bind_address = args[current_index + 1].clone();
+
+                current_index += 1;
+            }
             "-p" | "--port" => {
                 if current_index + 1 >= args.len() {
                     return Err("No port number provided.".to_string());
@@ -44,7 +55,7 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
 
                 current_index += 1;
             }
-            "-s" | "--state" => {
+            "-s" | "--state-file" => {
                 if current_index + 1 >= args.len() {
                     return Err("No state file provided.".to_string());
                 }
@@ -61,7 +72,11 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
         current_index += 1;
     }
 
-    Ok(Arguments { port, state_file })
+    Ok(Arguments {
+        bind_address,
+        port,
+        state_file,
+    })
 }
 
 #[cfg(test)]
@@ -72,12 +87,14 @@ mod tests {
     fn test_parse_arguments_long() {
         let args = vec![
             String::from("binary_name"),
+            String::from("--bind-address=255.255.255.255"),
             String::from("--port=1234"),
             String::from("--state=override.toml"),
         ];
 
         let config = parse_arguments(args).unwrap();
 
+        assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
         assert_eq!(config.state_file, "override.toml");
     }
@@ -86,6 +103,8 @@ mod tests {
     fn test_parse_arguments_long_with_space() {
         let args = vec![
             String::from("binary_name"),
+            String::from("--bind-address"),
+            String::from("255.255.255.255"),
             String::from("--port"),
             String::from("1234"),
             String::from("--state"),
@@ -94,6 +113,7 @@ mod tests {
 
         let config = parse_arguments(args).unwrap();
 
+        assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
         assert_eq!(config.state_file, "override.toml");
     }
@@ -102,6 +122,8 @@ mod tests {
     fn test_parse_arguments_short() {
         let args = vec![
             String::from("binary_name"),
+            String::from("-b"),
+            String::from("255.255.255.255"),
             String::from("-p"),
             String::from("1234"),
             String::from("-s"),
@@ -110,6 +132,7 @@ mod tests {
 
         let config = parse_arguments(args).unwrap();
 
+        assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
         assert_eq!(config.state_file, "override.toml");
     }
@@ -120,6 +143,7 @@ mod tests {
 
         let config = parse_arguments(args).unwrap();
 
+        assert_eq!(config.bind_address, "0.0.0.0");
         assert_eq!(config.port, 16600);
         assert_eq!(config.state_file, "state.toml");
     }
