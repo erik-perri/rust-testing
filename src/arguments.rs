@@ -5,6 +5,7 @@ pub struct Arguments {
 }
 
 pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
+    let binary_name = args[0].clone();
     let args: Vec<String> = args
         .into_iter()
         // Skip past the binary name
@@ -36,6 +37,18 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
                 bind_address = args[current_index + 1].clone();
 
                 current_index += 1;
+            }
+            "-h" | "--help" => {
+                println!("Usage: {} [options]", binary_name);
+                println!("\nOptions:");
+                println!(
+                    "  -b, --bind-address <address>  Bind address for the server. Default: 0.0.0.0"
+                );
+                println!("  -h, --help                    Display this help message.");
+                println!("  -p, --port <port>             Port for the server to listen on. Default: 16600");
+                println!("  -s, --state-file <file>       File to read and write state to. Default: state.toml");
+
+                std::process::exit(0);
             }
             "-p" | "--port" => {
                 if current_index + 1 >= args.len() {
