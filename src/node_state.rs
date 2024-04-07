@@ -18,11 +18,11 @@ pub struct NodeState {
 
 pub fn get_state(state_file: &str) -> Result<NodeState, String> {
     if Path::new(state_file).exists() {
-        return load_state_from_file(state_file.to_string());
+        return load_state_from_file(state_file);
     }
 
     save_state_to_file(
-        state_file.to_string(),
+        state_file,
         NodeState {
             node_id: generate_sha1(),
             peers: vec![],
@@ -30,7 +30,7 @@ pub fn get_state(state_file: &str) -> Result<NodeState, String> {
     )
 }
 
-fn load_state_from_file(file: String) -> Result<NodeState, String> {
+fn load_state_from_file(file: &str) -> Result<NodeState, String> {
     let contents = match std::fs::read_to_string(file) {
         Ok(contents) => contents,
         Err(error) => {
@@ -41,7 +41,7 @@ fn load_state_from_file(file: String) -> Result<NodeState, String> {
     deserialize_state(&contents)
 }
 
-fn save_state_to_file(file: String, state: NodeState) -> Result<NodeState, String> {
+fn save_state_to_file(file: &str, state: NodeState) -> Result<NodeState, String> {
     let toml = serialize_state(&state)?;
 
     std::fs::write(file, toml).map_err(|err| err.to_string())?;
