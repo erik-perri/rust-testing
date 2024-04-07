@@ -102,7 +102,7 @@ mod tests {
             String::from("binary_name"),
             String::from("--bind-address=255.255.255.255"),
             String::from("--port=1234"),
-            String::from("--state=override.toml"),
+            String::from("--state-file=override.toml"),
         ];
 
         let config = parse_arguments(args).unwrap();
@@ -120,7 +120,7 @@ mod tests {
             String::from("255.255.255.255"),
             String::from("--port"),
             String::from("1234"),
-            String::from("--state"),
+            String::from("--state-file"),
             String::from("override.toml"),
         ];
 
