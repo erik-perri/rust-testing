@@ -7,7 +7,7 @@ mod output_buffer;
 mod server;
 mod terminal;
 
-trait OutputWriter {
+trait OutputWriter: Send {
     fn output(&self, message: String);
 }
 

@@ -9,11 +9,11 @@ use std::thread::JoinHandle;
 pub struct Server {
     pub bind_address: String,
     pub port: u16,
-    logger: Arc<Mutex<dyn OutputWriter + Send>>,
+    logger: Arc<Mutex<dyn OutputWriter>>,
 }
 
 impl Server {
-    pub fn new(bind_address: &str, port: u16, logger: Arc<Mutex<dyn OutputWriter + Send>>) -> Self {
+    pub fn new(bind_address: &str, port: u16, logger: Arc<Mutex<dyn OutputWriter>>) -> Self {
         Server {
             bind_address: bind_address.to_string(),
             logger,

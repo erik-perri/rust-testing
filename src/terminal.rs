@@ -4,11 +4,11 @@ use std::sync::{atomic::AtomicBool, Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 pub struct Terminal {
-    logger: Arc<Mutex<dyn OutputWriter + Send>>,
+    logger: Arc<Mutex<dyn OutputWriter>>,
 }
 
 impl Terminal {
-    pub fn new(logger: Arc<Mutex<dyn OutputWriter + Send>>) -> Self {
+    pub fn new(logger: Arc<Mutex<dyn OutputWriter>>) -> Self {
         Terminal { logger }
     }
 
