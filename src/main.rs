@@ -1,19 +1,10 @@
 use std::env;
-use std::io::{self, Write};
 use std::net::TcpListener;
+use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 
 mod config;
-
-fn output_line(input: String) {
-    if !input.is_empty() {
-        println!("\r{}\n", input);
-    }
-
-    print!("> ");
-
-    io::stdout().flush().unwrap();
-}
+mod terminal;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -25,29 +16,29 @@ fn main() {
         }
     };
 
+    let is_running = Arc::new(AtomicBool::new(true));
+
+    let terminal = terminal::Terminal::new();
+    let terminal_handle = terminal.start(&is_running);
+
+    terminal.listen_for_commands(&is_running);
+
     thread::spawn(move || {
-        output_line(format!("Listening on port: {}", config.port));
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", config.port)).unwrap();
+        let bind_address = format!("0.0.0.0:{}", config.port);
+
+        terminal.output(format!("Node listening on {}", bind_address));
+
+        let listener = TcpListener::bind(bind_address).unwrap();
 
         for stream in listener.incoming() {
             let stream = stream.unwrap();
 
-            output_line(format!(
+            terminal.output(format!(
                 "Connection established to {}",
                 stream.peer_addr().unwrap()
             ));
         }
     });
 
-    loop {
-        let mut input = String::new();
-
-        io::stdin().read_line(&mut input).unwrap();
-
-        match input.trim() {
-            "exit" | "quit" => break,
-            "" => output_line("".to_string()),
-            _ => output_line(format!("Invalid command: {}", input.trim())),
-        }
-    }
+    terminal_handle.join().unwrap();
 }
