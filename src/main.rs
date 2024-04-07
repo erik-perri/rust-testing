@@ -50,11 +50,6 @@ fn main() {
 
     terminal_handle.join().unwrap();
 
-    output_buffer
-        .lock()
-        .unwrap()
-        .output("terminal_handle done".to_string());
-
     // We can't wait for this until we use a non-blocking IO library
     // server_handle.unwrap().join().unwrap();
 }
