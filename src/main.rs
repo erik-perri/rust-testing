@@ -29,7 +29,6 @@ fn main() {
     };
 
     let output_buffer = Arc::new(Mutex::new(output_buffer::OutputBuffer::new()));
-    output_buffer.lock().unwrap().start();
 
     let terminal_output_buffer = Arc::clone(&output_buffer);
     let terminal = terminal::Terminal::new(terminal_output_buffer);
