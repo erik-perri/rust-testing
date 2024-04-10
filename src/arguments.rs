@@ -1,5 +1,6 @@
 pub struct Arguments {
     pub bind_address: String,
+    pub peer_file: String,
     pub port: u16,
     pub state_file: String,
 }
@@ -20,7 +21,8 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
         .collect();
 
     let mut port: u16 = 16600;
-    let mut state_file = String::from("state.toml");
+    let mut state_file = String::from("state.bin");
+    let mut peer_file = String::from("peers.bin");
     let mut bind_address = String::from("0.0.0.0");
 
     let mut current_index = 0;
@@ -46,7 +48,8 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
                 );
                 println!("  -h, --help                    Display this help message.");
                 println!("  -p, --port <port>             Port for the server to listen on. Default: 16600");
-                println!("  -s, --state-file <file>       File to read and write state to. Default: state.toml");
+                println!("  --state-file <file>           File to read and write state to. Default: state.toml");
+                println!("  --peer-file <file>            File to read and write peers to. Default: peers.bin");
 
                 std::process::exit(0);
             }
@@ -68,12 +71,21 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
 
                 current_index += 1;
             }
-            "-s" | "--state-file" => {
+            "--state-file" => {
                 if current_index + 1 >= args.len() {
                     return Err("No state file provided.".to_string());
                 }
 
                 state_file = args[current_index + 1].clone();
+
+                current_index += 1;
+            }
+            "--peer-file" => {
+                if current_index + 1 >= args.len() {
+                    return Err("No peer file provided.".to_string());
+                }
+
+                peer_file = args[current_index + 1].clone();
 
                 current_index += 1;
             }
@@ -87,6 +99,7 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
 
     Ok(Arguments {
         bind_address,
+        peer_file,
         port,
         state_file,
     })
@@ -102,14 +115,16 @@ mod tests {
             String::from("binary_name"),
             String::from("--bind-address=255.255.255.255"),
             String::from("--port=1234"),
-            String::from("--state-file=override.toml"),
+            String::from("--state-file=override.bin"),
+            String::from("--peer-file=peers.bin"),
         ];
 
         let config = parse_arguments(args).unwrap();
 
         assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
-        assert_eq!(config.state_file, "override.toml");
+        assert_eq!(config.state_file, "override.bin");
+        assert_eq!(config.peer_file, "peers.bin");
     }
 
     #[test]
@@ -121,14 +136,17 @@ mod tests {
             String::from("--port"),
             String::from("1234"),
             String::from("--state-file"),
-            String::from("override.toml"),
+            String::from("override.bin"),
+            String::from("--peer-file"),
+            String::from("peers.bin"),
         ];
 
         let config = parse_arguments(args).unwrap();
 
         assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
-        assert_eq!(config.state_file, "override.toml");
+        assert_eq!(config.state_file, "override.bin");
+        assert_eq!(config.peer_file, "peers.bin");
     }
 
     #[test]
@@ -139,15 +157,12 @@ mod tests {
             String::from("255.255.255.255"),
             String::from("-p"),
             String::from("1234"),
-            String::from("-s"),
-            String::from("override.toml"),
         ];
 
         let config = parse_arguments(args).unwrap();
 
         assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
-        assert_eq!(config.state_file, "override.toml");
     }
 
     #[test]
@@ -158,7 +173,8 @@ mod tests {
 
         assert_eq!(config.bind_address, "0.0.0.0");
         assert_eq!(config.port, 16600);
-        assert_eq!(config.state_file, "state.toml");
+        assert_eq!(config.state_file, "state.bin");
+        assert_eq!(config.peer_file, "peers.bin");
     }
 
     #[test]
