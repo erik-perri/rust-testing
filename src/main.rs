@@ -1,4 +1,5 @@
 use crate::server::Message;
+use chrono::DateTime;
 use std::env;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
@@ -75,7 +76,7 @@ fn main() {
     let node_id_clone = app_state.node_id.clone();
     let server_clone = Arc::clone(&server);
 
-    terminal.on_command("add_node", move |args| {
+    terminal.on_command("add_peer", move |args| {
         if args.len() < 2 {
             return Err("Invalid command: add_node <ip:port>".to_string());
         }
@@ -99,6 +100,26 @@ fn main() {
         )
     });
 
+    let peer_manager_clone = Arc::clone(&peer_manager);
+
+    terminal.on_command("list_peers", move |_args| {
+        for (_node_id, peer) in peer_manager_clone.lock().unwrap().peers_iter() {
+            let last_seen = DateTime::from_timestamp(peer.last_seen as i64, 0)
+                .ok_or("Invalid last seen timestamp.")?;
+            let first_seen = DateTime::from_timestamp(peer.first_seen as i64, 0)
+                .ok_or("Invalid first seen timestamp.")?;
+
+            println!("[{}]", peer.node_id);
+            println!("     Active: {}", peer.active);
+            println!("    Address: {}:{}", peer.address, peer.port);
+            println!("  Last seen: {}", peer.last_seen);
+            println!("  Last seen: {}", last_seen.format("%Y-%m-%d %H:%M:%S"));
+            println!(" First seen: {}", first_seen.format("%Y-%m-%d %H:%M:%S"));
+        }
+
+        Ok(())
+    });
+
     let node_id_clone = app_state.node_id.clone();
     let server_clone = Arc::clone(&server);
     let peer_manager_clone = Arc::clone(&peer_manager);
@@ -113,6 +134,11 @@ fn main() {
                 Message::Ping => {
                     println!("Received PING from {}, sending PONG.", socket_addr);
 
+                    peer_manager_clone
+                        .lock()
+                        .unwrap()
+                        .add_peer(socket_addr, &packet.node_id);
+
                     server_clone.lock().unwrap().send(
                         socket_addr,
                         server::Packet {
@@ -125,22 +151,10 @@ fn main() {
                 Message::Pong => {
                     println!("Received PONG from {}, adding peer.", socket_addr);
 
-                    let now = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .expect("Unable to generate timestamp due to current time.")
-                        .as_secs();
-
                     peer_manager_clone
                         .lock()
                         .unwrap()
-                        .add_peer(peer_manager::Peer {
-                            active: true,
-                            address: socket_addr.ip().to_string(),
-                            first_seen: now,
-                            last_seen: now,
-                            node_id: packet.node_id.clone(),
-                            port: socket_addr.port(),
-                        });
+                        .add_peer(socket_addr, &packet.node_id);
 
                     Ok(())
                 }

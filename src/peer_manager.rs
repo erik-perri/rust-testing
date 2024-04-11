@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct Peer {
@@ -32,10 +33,27 @@ impl PeerManager {
         Ok(Self { peers: nodes })
     }
 
-    pub fn add_peer(&mut self, node: Peer) {
-        let node_id = node.node_id.clone();
+    pub fn add_peer(&mut self, socket_addr: SocketAddr, node_id: &str) {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Unable to generate timestamp due to current time.")
+            .as_secs();
 
-        self.peers.entry(node_id).or_insert(node).active = true;
+        let peer = self.peers.entry(node_id.to_string()).or_insert(Peer {
+            active: true,
+            address: socket_addr.ip().to_string(),
+            first_seen: now,
+            last_seen: now,
+            node_id: node_id.to_string(),
+            port: socket_addr.port(),
+        });
+
+        peer.active = true;
+        peer.last_seen = now;
+    }
+
+    pub fn peers_iter(&self) -> std::collections::hash_map::Iter<String, Peer> {
+        return self.peers.iter();
     }
 
     pub fn len(&self) -> usize {
