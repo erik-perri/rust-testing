@@ -112,7 +112,6 @@ fn main() {
             println!("[{}]", peer.node_id);
             println!("     Active: {}", peer.active);
             println!("    Address: {}:{}", peer.address, peer.port);
-            println!("  Last seen: {}", peer.last_seen);
             println!("  Last seen: {}", last_seen.format("%Y-%m-%d %H:%M:%S"));
             println!(" First seen: {}", first_seen.format("%Y-%m-%d %H:%M:%S"));
         }
