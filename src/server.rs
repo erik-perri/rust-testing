@@ -111,11 +111,6 @@ impl Server {
             loop {
                 match receive_socket.recv_from(&mut buffer) {
                     Ok((amt, src)) => {
-                        logger.lock().unwrap()(format!(
-                            "Received {} byte packet from {}",
-                            amt, src
-                        ));
-
                         let packet: Packet = match bincode::deserialize(&buffer[..amt]) {
                             Ok(packet) => packet,
                             Err(error) => {
