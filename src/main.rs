@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 mod app_state;
 mod arguments;
+mod hash;
 mod peer_manager;
 mod server;
 mod terminal;

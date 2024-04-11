@@ -1,6 +1,5 @@
-use rand::{thread_rng, Rng};
+use crate::hash::random_sha1_to_string;
 use serde::{Deserialize, Serialize};
-use sha1::{Digest, Sha1};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct AppState {
@@ -11,7 +10,7 @@ impl AppState {
     pub fn initialize_or_create(path: &str) -> Result<Self, String> {
         if !std::path::Path::new(path).exists() {
             return Ok(Self {
-                node_id: generate_sha1(),
+                node_id: random_sha1_to_string(),
             });
         }
 
@@ -29,17 +28,4 @@ impl AppState {
 
         Ok(())
     }
-}
-
-fn generate_sha1() -> String {
-    let mut rng = thread_rng();
-    let mut bytes: [u8; 64] = [0; 64];
-    rng.fill(&mut bytes[..]);
-
-    let mut hasher = Sha1::new();
-    hasher.update(bytes);
-
-    let sha1 = hasher.finalize();
-
-    format!("{:x}", sha1)
 }
