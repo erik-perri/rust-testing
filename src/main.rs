@@ -127,8 +127,6 @@ fn main() {
         .lock()
         .unwrap()
         .on_receive(move |socket_addr, packet| {
-            println!("Received packet: from {}, {:?}", socket_addr, packet);
-
             node_clone
                 .lock()
                 .unwrap()

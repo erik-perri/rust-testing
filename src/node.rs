@@ -53,7 +53,7 @@ impl Node {
                 Ok(())
             }
             _ => {
-                println!("Received an unhandled message: {:?}", packet.message);
+                println!("Received an unhandled message: {:?}", packet);
 
                 Ok(())
             }
