@@ -97,10 +97,6 @@ impl Server {
             .set_nonblocking(true)
             .map_err(|error| format!("Failed to set non-blocking: {}", error))?;
 
-        send_socket
-            .set_nonblocking(true)
-            .map_err(|error| format!("Failed to set non-blocking: {}", error))?;
-
         logger.lock().unwrap()(format!(
             "[{}] Listening on {}",
             app_state.node_id, bind_address
