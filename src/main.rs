@@ -1,4 +1,3 @@
-use crate::server::Message;
 use chrono::DateTime;
 use std::env;
 use std::sync::atomic::AtomicBool;
@@ -7,6 +6,7 @@ use std::sync::{Arc, Mutex};
 mod app_state;
 mod arguments;
 mod hash;
+mod node;
 mod peer_manager;
 mod server;
 mod terminal;
@@ -61,6 +61,15 @@ fn main() {
         },
     )));
 
+    let peer_manager_clone = Arc::clone(&peer_manager);
+    let server_clone = Arc::clone(&server);
+
+    let node = Arc::new(Mutex::new(node::Node::new(
+        &app_state.node_id,
+        peer_manager_clone,
+        server_clone,
+    )));
+
     let is_running = Arc::new(AtomicBool::new(true));
 
     //
@@ -74,8 +83,7 @@ fn main() {
         Ok(())
     });
 
-    let node_id_clone = app_state.node_id.clone();
-    let server_clone = Arc::clone(&server);
+    let node_clone = Arc::clone(&node);
 
     terminal.on_command("add_peer", move |args| {
         if args.len() < 2 {
@@ -91,14 +99,7 @@ fn main() {
 
         println!("Sending PING to {}", socket_addr);
 
-        server_clone.lock().unwrap().send(
-            socket_addr,
-            server::Packet {
-                node_id: node_id_clone.clone(),
-                transaction_id: "test".to_string(),
-                message: Message::Ping,
-            },
-        )
+        node_clone.lock().unwrap().send_ping(socket_addr)
     });
 
     let peer_manager_clone = Arc::clone(&peer_manager);
@@ -120,9 +121,7 @@ fn main() {
         Ok(())
     });
 
-    let node_id_clone = app_state.node_id.clone();
-    let server_clone = Arc::clone(&server);
-    let peer_manager_clone = Arc::clone(&peer_manager);
+    let node_clone = Arc::clone(&node);
 
     server
         .lock()
@@ -130,39 +129,10 @@ fn main() {
         .on_receive(move |socket_addr, packet| {
             println!("Received packet: from {}, {:?}", socket_addr, packet);
 
-            match packet.message {
-                Message::Ping => {
-                    println!("Received PING from {}, sending PONG.", socket_addr);
-
-                    peer_manager_clone
-                        .lock()
-                        .unwrap()
-                        .add_peer(socket_addr, &packet.node_id);
-
-                    server_clone.lock().unwrap().send(
-                        socket_addr,
-                        server::Packet {
-                            node_id: node_id_clone.clone(),
-                            transaction_id: packet.transaction_id,
-                            message: Message::Pong,
-                        },
-                    )
-                }
-                Message::Pong => {
-                    println!("Received PONG from {}, adding peer.", socket_addr);
-
-                    peer_manager_clone
-                        .lock()
-                        .unwrap()
-                        .add_peer(socket_addr, &packet.node_id);
-
-                    Ok(())
-                }
-                _ => {
-                    println!("Received unknown message from {}", socket_addr);
-                    Ok(())
-                }
-            }
+            node_clone
+                .lock()
+                .unwrap()
+                .handle_packet(socket_addr, packet)
         });
 
     //
