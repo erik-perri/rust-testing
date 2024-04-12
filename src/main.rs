@@ -32,7 +32,10 @@ fn main() {
         }
     };
 
-    let peer_manager = match peer_manager::PeerManager::initialize_or_create(&arguments.peer_file) {
+    let peer_manager = match peer_manager::PeerManager::initialize_or_create(
+        &arguments.peer_file,
+        &app_state.node_id,
+    ) {
         Ok(node_manager) => Arc::new(Mutex::new(node_manager)),
         Err(error) => {
             eprintln!(
@@ -100,26 +103,26 @@ fn main() {
             }
         };
 
-        println!("Sending PING to {}", socket_addr);
-
         node_clone.lock().unwrap().send_ping(socket_addr)
     });
 
     let peer_manager_clone = Arc::clone(&peer_manager);
 
     terminal.on_command("list_peers", move |_args| {
-        for (_node_id, peer) in peer_manager_clone.lock().unwrap().peers_iter() {
+        peer_manager_clone.lock().unwrap().for_each(&mut |peer| {
             let last_seen = DateTime::from_timestamp(peer.last_seen as i64, 0)
-                .ok_or("Invalid last seen timestamp.")?;
+                .ok_or("Invalid last seen timestamp.")
+                .unwrap();
             let first_seen = DateTime::from_timestamp(peer.first_seen as i64, 0)
-                .ok_or("Invalid first seen timestamp.")?;
+                .ok_or("Invalid first seen timestamp.")
+                .unwrap();
 
             println!("[{}]", peer.node_id);
             println!("     Active: {}", peer.active);
             println!("    Address: {}:{}", peer.address, peer.port);
             println!("  Last seen: {}", last_seen.format("%Y-%m-%d %H:%M:%S"));
             println!(" First seen: {}", first_seen.format("%Y-%m-%d %H:%M:%S"));
-        }
+        });
 
         Ok(())
     });
@@ -130,6 +133,8 @@ fn main() {
         .lock()
         .unwrap()
         .on_receive(move |socket_addr, packet| {
+            println!("Received packet from {}, {:?}", socket_addr, packet);
+
             node_clone
                 .lock()
                 .unwrap()
@@ -149,6 +154,11 @@ fn main() {
     };
 
     let terminal_handle = terminal.start(&is_running);
+
+    node.lock()
+        .unwrap()
+        .find_nearby_nodes(&app_state.node_id)
+        .unwrap();
 
     //
     // Wait for threads

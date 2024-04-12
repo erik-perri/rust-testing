@@ -9,11 +9,18 @@ use std::thread::sleep;
 use std::{io, thread};
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+pub struct FoundNode {
+    pub node_id: String,
+    pub address: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub enum Message {
     Ping,
     Pong,
     Store(String, Vec<u8>),
     FindNode(String),
+    FindNodeResponse(Vec<FoundNode>),
     FindValue(String),
 }
 
