@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
 pub struct Node {
+    logger: Arc<Mutex<fn(String)>>,
     node_id: String,
     peer_manager: Arc<Mutex<PeerManager>>,
     server: Arc<Mutex<Server>>,
@@ -17,6 +18,7 @@ impl Node {
         node_id: &str,
         peer_manager: Arc<Mutex<PeerManager>>,
         server: Arc<Mutex<Server>>,
+        logger: fn(String),
     ) -> Self {
         Self {
             node_id: node_id.to_string(),
@@ -29,8 +31,6 @@ impl Node {
     pub fn handle_packet(&self, socket_addr: SocketAddr, packet: Packet) -> Result<(), String> {
         match packet.message {
             Message::Ping => {
-                println!("Received PING from {}, sending PONG.", socket_addr);
-
                 self.send_pong(socket_addr, &packet.transaction_id)?;
 
                 self.peer_manager
@@ -41,7 +41,11 @@ impl Node {
                 Ok(())
             }
             Message::Pong => {
-                println!("Received PONG from {}.", socket_addr);
+                self.logger.lock().unwrap()(format!(
+                    "Received PONG from {} (transaction: {})",
+                    socket_addr, packet.transaction_id
+                ));
+
 
                 self.receive_pong(socket_addr, packet.transaction_id)?;
 
@@ -53,7 +57,10 @@ impl Node {
                 Ok(())
             }
             _ => {
-                println!("Received an unhandled message: {:?}", packet);
+                self.logger.lock().unwrap()(format!(
+                    "Received an unknown message from {}: {:?}",
+                    socket_addr, packet
+                ));
 
                 Ok(())
             }
@@ -68,10 +75,10 @@ impl Node {
             .unwrap()
             .insert(transaction_id.clone(), socket_addr);
 
-        println!(
+        self.logger.lock().unwrap()(format!(
             "Sending PING to {} (transaction {})",
             socket_addr, transaction_id
-        );
+        ));
 
         self.server.lock().unwrap().send(
             socket_addr,
@@ -84,10 +91,10 @@ impl Node {
     }
 
     fn send_pong(&self, socket_addr: SocketAddr, ping_transaction_id: &str) -> Result<(), String> {
-        println!(
-            "Sending PONG to {} (transaction {})",
-            socket_addr, ping_transaction_id
-        );
+        self.logger.lock().unwrap()(format!(
+            "Received PING from {}, sending PONG (transaction: {})",
+            socket_addr, packet.transaction_id
+        ));
 
         self.server.lock().unwrap().send(
             socket_addr,
@@ -117,11 +124,6 @@ impl Node {
                 socket_addr, transaction_id
             ));
         }
-
-        println!(
-            "Received a valid PONG from {} (transaction: {})",
-            socket_addr, transaction_id
-        );
 
         return Ok(());
     }

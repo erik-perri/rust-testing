@@ -68,6 +68,9 @@ fn main() {
         &app_state.node_id,
         peer_manager_clone,
         server_clone,
+        |message| {
+            println!("{}", message);
+        },
     )));
 
     let is_running = Arc::new(AtomicBool::new(true));
