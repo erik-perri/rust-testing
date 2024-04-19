@@ -30,11 +30,9 @@ impl Terminal {
             .insert(command.to_string(), Box::new(callback));
     }
 
-    pub fn start(&self, is_running: &Arc<AtomicBool>) -> JoinHandle<()> {
-        let is_running = Arc::clone(&is_running);
-
-        let command_handlers = Arc::clone(&self.command_handlers);
-        let logger = Arc::clone(&self.logger);
+    pub fn start(&self, is_running: Arc<AtomicBool>) -> JoinHandle<()> {
+        let command_handlers = self.command_handlers.clone();
+        let logger = self.logger.clone();
 
         thread::spawn(move || {
             while is_running.load(std::sync::atomic::Ordering::Relaxed) {
