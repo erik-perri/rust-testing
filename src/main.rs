@@ -187,6 +187,11 @@ fn main() {
                 }
             };
 
+            recv_log(format!(
+                "Received {:?} from peer {} ({})",
+                &packet.message, &peer.node_id, &peer.address
+            ));
+
             if let structures::Message::Response(_) = packet.message {
                 let mut queue = response_queue.lock().unwrap();
 
@@ -194,11 +199,6 @@ fn main() {
 
                 return;
             }
-
-            recv_log(format!(
-                "Received {:?} from peer {} ({})",
-                &packet.message, &peer.node_id, &peer.address
-            ));
 
             let send_tx = send_tx.clone();
             let local_node_id = node_state.node_id.clone();
