@@ -3,11 +3,11 @@ use std::collections::VecDeque;
 use std::env;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread::sleep;
 
-use crate::messages::{find_nearby_peers, handle_request, send_packet, wait_for_response};
+use crate::messages::{
+    find_nearby_peers, process_incoming_requests, send_packet, wait_for_response,
+};
 use colored::Colorize;
 
 use crate::node_state::{load_node_state, save_node_state};
@@ -36,13 +36,13 @@ fn main() {
     debug_log(format!("Loaded {} peers", peer_manager.to_vec().len()));
 
     let (receive_tx, receive_rx): (
-        Sender<(SocketAddr, Vec<u8>)>,
-        Receiver<(SocketAddr, Vec<u8>)>,
+        mpsc::Sender<(SocketAddr, Vec<u8>)>,
+        mpsc::Receiver<(SocketAddr, Vec<u8>)>,
     ) = mpsc::channel();
 
     let (send_tx, send_rx): (
-        Sender<(SocketAddr, Vec<u8>)>,
-        Receiver<(SocketAddr, Vec<u8>)>,
+        mpsc::Sender<(SocketAddr, Vec<u8>)>,
+        mpsc::Receiver<(SocketAddr, Vec<u8>)>,
     ) = mpsc::channel();
 
     let is_running = Arc::new(AtomicBool::new(true));
@@ -150,7 +150,16 @@ fn main() {
     let response_queue_clone = response_queue.clone();
     let send_tx_clone = send_tx.clone();
 
-    std::thread::spawn(move || {
+    let process_messages_thread = process_incoming_requests(
+        is_running.clone(),
+        node_state.node_id.clone(),
+        peer_manager.clone(),
+        response_queue.clone(),
+        receive_rx,
+        send_tx.clone(),
+    );
+
+    let find_peers_thread = std::thread::spawn(move || {
         match find_nearby_peers(
             is_running_clone,
             local_node_id.as_str(),
@@ -163,63 +172,12 @@ fn main() {
         }
     });
 
-    while is_running.load(std::sync::atomic::Ordering::Relaxed) {
-        let peer_manager_clone = peer_manager.clone();
-
-        receive_rx.try_iter().for_each(|(src, data)| {
-            let packet: structures::Packet = match bincode::deserialize(data.as_slice()) {
-                Ok(packet) => packet,
-                Err(error) => {
-                    error_log(format!("Failed to deserialize packet: {}", error));
-                    return;
-                }
-            };
-
-            let peer =
-                match peer_manager_clone
-                    .lock()
-                    .unwrap()
-                    .add_peer(&src, &packet.node_id, true)
-                {
-                    Ok(peer) => peer,
-                    Err(error) => {
-                        error_log(error);
-                        return;
-                    }
-                };
-
-            recv_log(format!(
-                "Received {:?} from peer {} ({})",
-                &packet.message, &peer.node_id, &peer.address
-            ));
-
-            if let structures::Message::Response(_) = packet.message {
-                let mut queue = response_queue.lock().unwrap();
-
-                queue.push_back(packet);
-
-                return;
-            }
-
-            let send_tx = send_tx.clone();
-            let local_node_id = node_state.node_id.clone();
-
-            handle_request(
-                &local_node_id,
-                &packet,
-                &peer,
-                peer_manager_clone.clone(),
-                send_tx,
-            );
-        });
-
-        sleep(std::time::Duration::from_millis(100));
-    }
-
     debug_log("Waiting for server threads to finish".to_string());
     receive_thread.join().unwrap();
     send_thread.join().unwrap();
     // terminal_thread.join().unwrap();
+    find_peers_thread.join().unwrap();
+    process_messages_thread.join().unwrap();
 
     debug_log(format!("Saving node state to {}", arguments.state_file));
     save_node_state(&arguments.state_file, &node_state).unwrap_or_else(|error| fatal_log(error));
