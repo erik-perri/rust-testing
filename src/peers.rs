@@ -41,7 +41,7 @@ impl PeerManager {
 
     pub fn add_peer(
         &mut self,
-        socket_addr: SocketAddr,
+        socket_addr: &SocketAddr,
         peer_node_id: &str,
         active: bool,
     ) -> Result<structures::Peer, String> {
@@ -84,11 +84,10 @@ impl PeerManager {
 
                 let peer = structures::Peer {
                     active,
-                    address: socket_addr.ip().to_string(),
+                    address: socket_addr.clone(),
                     first_seen: now,
                     last_seen,
                     node_id: peer_node_id.to_string(),
-                    port: socket_addr.port(),
                 };
 
                 self.buckets[bucket_index].push_back(peer.clone());

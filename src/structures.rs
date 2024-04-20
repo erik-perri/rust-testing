@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NodeState {
@@ -9,11 +10,10 @@ pub struct NodeState {
 pub struct Peer {
     #[serde(skip_serializing, skip_deserializing)]
     pub active: bool,
-    pub address: String,
+    pub address: SocketAddr,
     pub first_seen: u64,
     pub last_seen: Option<u64>,
     pub node_id: String,
-    pub port: u16,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
@@ -47,6 +47,6 @@ pub enum Response {
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct FoundNode {
-    pub address: String,
+    pub address: SocketAddr,
     pub node_id: String,
 }

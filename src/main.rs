@@ -103,7 +103,7 @@ fn main() {
             transaction_id: random_sha1_to_string(),
         };
 
-        send_packet(&packet, socket_addr, send_tx_clone.clone())?;
+        send_packet(&packet, &socket_addr, send_tx_clone.clone())?;
 
         wait_for_response(
             is_running_clone.clone(),
@@ -124,7 +124,7 @@ fn main() {
             .for_each(|peer: &structures::Peer| {
                 println!("[{}]", peer.node_id);
                 println!("     Active: {}", peer.active);
-                println!("    Address: {}:{}", peer.address, peer.port);
+                println!("    Address: {}", peer.address);
 
                 let first_seen = DateTime::from_timestamp(peer.first_seen as i64, 0)
                     .ok_or("Invalid first seen timestamp.")
@@ -175,17 +175,18 @@ fn main() {
                 }
             };
 
-            let peer = match peer_manager_clone
-                .lock()
-                .unwrap()
-                .add_peer(src, &packet.node_id, true)
-            {
-                Ok(peer) => peer,
-                Err(error) => {
-                    error_log(error);
-                    return;
-                }
-            };
+            let peer =
+                match peer_manager_clone
+                    .lock()
+                    .unwrap()
+                    .add_peer(&src, &packet.node_id, true)
+                {
+                    Ok(peer) => peer,
+                    Err(error) => {
+                        error_log(error);
+                        return;
+                    }
+                };
 
             recv_log(format!(
                 "Received {:?} from peer {} ({})",

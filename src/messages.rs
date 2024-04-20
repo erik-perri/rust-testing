@@ -30,7 +30,7 @@ pub fn handle_request(
                 message: structures::Message::Response(structures::Response::Pong),
             };
 
-            send_packet_to_peer(&response, &peer, send_tx).unwrap();
+            send_packet(&response, &peer.address, send_tx).unwrap();
         }
         structures::Request::FindNode(node_id) => {
             let nodes = peer_manager.lock().unwrap().nearby_peers(node_id);
@@ -44,7 +44,7 @@ pub fn handle_request(
                 .unwrap()
                 .iter()
                 .map(|peer| structures::FoundNode {
-                    address: format!("{}:{}", peer.address, peer.port),
+                    address: peer.address,
                     node_id: peer.node_id.clone(),
                 })
                 .collect();
@@ -55,7 +55,7 @@ pub fn handle_request(
                 message: structures::Message::Response(structures::Response::FindNode(nodes)),
             };
 
-            send_packet_to_peer(&response, &peer, send_tx).unwrap();
+            send_packet(&response, &peer.address, send_tx).unwrap();
         }
         _ => {
             error_log("Received unhandled request".to_string());
@@ -81,7 +81,7 @@ pub fn find_nearby_peers(
             transaction_id: random_sha1_to_string(),
         };
 
-        send_packet_to_peer(&packet, &peer, send_tx.clone())?;
+        send_packet(&packet, &peer.address, send_tx.clone())?;
 
         let response = match wait_for_response(
             is_running.clone(),
@@ -103,15 +103,11 @@ pub fn find_nearby_peers(
         };
 
         for node in nodes {
-            let peer_socket_addr: SocketAddr = node.address.parse().map_err(|error| {
-                format!("Failed to parse peer address {}: {}", node.address, error)
-            })?;
-
             let peer =
                 peer_manager
                     .lock()
                     .unwrap()
-                    .add_peer(peer_socket_addr, &node.node_id, false)?;
+                    .add_peer(&node.address, &node.node_id, false)?;
 
             let ping_packet = structures::Packet {
                 node_id: local_node_id.to_string(),
@@ -119,7 +115,7 @@ pub fn find_nearby_peers(
                 transaction_id: random_sha1_to_string(),
             };
 
-            send_packet_to_peer(&ping_packet, &peer, send_tx.clone())?;
+            send_packet(&ping_packet, &peer.address, send_tx.clone())?;
 
             let _ = wait_for_response(
                 is_running.clone(),
@@ -132,21 +128,9 @@ pub fn find_nearby_peers(
     Ok(())
 }
 
-pub fn send_packet_to_peer(
-    packet: &structures::Packet,
-    peer: &structures::Peer,
-    send_tx: Sender<(SocketAddr, Vec<u8>)>,
-) -> Result<(), String> {
-    let socket_addr: SocketAddr = format!("{}:{}", peer.address, peer.port)
-        .parse()
-        .map_err(|error| format!("Failed to parse peer address: {}", error))?;
-
-    send_packet(packet, socket_addr, send_tx)
-}
-
 pub fn send_packet(
     packet: &structures::Packet,
-    socket_addr: SocketAddr,
+    socket_addr: &SocketAddr,
     send_tx: Sender<(SocketAddr, Vec<u8>)>,
 ) -> Result<(), String> {
     let data = bincode::serialize(&packet).map_err(|error| {
@@ -162,7 +146,7 @@ pub fn send_packet(
     ));
 
     send_tx
-        .send((socket_addr, data))
+        .send((*socket_addr, data))
         .map_err(|error| format!("Failed to send packet to peer: {}", error))?;
 
     Ok(())
