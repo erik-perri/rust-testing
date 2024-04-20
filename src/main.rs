@@ -126,6 +126,11 @@ fn main() {
                 println!("     Active: {}", peer.active);
                 println!("    Address: {}:{}", peer.address, peer.port);
 
+                let first_seen = DateTime::from_timestamp(peer.first_seen as i64, 0)
+                    .ok_or("Invalid first seen timestamp.")
+                    .unwrap();
+                println!(" First seen: {}", first_seen.format("%Y-%m-%d %H:%M:%S"));
+
                 if let Some(last_seen) = peer.last_seen {
                     let last_seen = DateTime::from_timestamp(last_seen as i64, 0)
                         .ok_or("Invalid last seen timestamp.")
@@ -134,11 +139,6 @@ fn main() {
                 } else {
                     println!("  Last seen: Never");
                 }
-
-                let first_seen = DateTime::from_timestamp(peer.first_seen as i64, 0)
-                    .ok_or("Invalid first seen timestamp.")
-                    .unwrap();
-                println!(" First seen: {}", first_seen.format("%Y-%m-%d %H:%M:%S"));
             });
 
         Ok(())
