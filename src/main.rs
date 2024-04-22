@@ -55,9 +55,8 @@ fn main() {
         &node_state.node_id, socket_addr
     ));
 
-    let is_running_clone = is_running.clone();
     let (receive_thread, send_thread) =
-        start_server(socket_addr, is_running_clone, receive_tx, send_rx)
+        start_server(socket_addr, is_running.clone(), receive_tx, send_rx)
             .unwrap_or_else(|error| fatal_log(error));
 
     let is_running_clone = is_running.clone();
