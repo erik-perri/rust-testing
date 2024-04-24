@@ -127,9 +127,7 @@ impl PeerManager {
     }
 
     pub fn save(&self, path: &str) -> Result<(), String> {
-        PeerManager::save_buckets(path, &self.buckets)?;
-
-        Ok(())
+        PeerManager::save_buckets(path, &self.buckets)
     }
 
     pub fn to_vec(&self) -> Vec<structures::Peer> {

@@ -235,7 +235,7 @@ pub fn wait_for_response(
 
         drop(queue);
 
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        sleep(std::time::Duration::from_millis(50));
 
         if std::time::SystemTime::now() > end_time {
             return Err(format!(
