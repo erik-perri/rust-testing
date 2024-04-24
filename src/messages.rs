@@ -1,5 +1,6 @@
 use crate::peers::PeerManager;
 use crate::utilities::random_sha1_to_string;
+use crate::values::ValueStore;
 use crate::{error_log, recv_log, send_log, structures};
 use std::collections::VecDeque;
 use std::net::SocketAddr;
@@ -11,11 +12,13 @@ pub fn process_incoming_requests(
     is_running: Arc<AtomicBool>,
     local_node_id: String,
     peer_manager: Arc<Mutex<PeerManager>>,
+    value_store: Arc<Mutex<ValueStore>>,
     response_queue: Arc<Mutex<VecDeque<structures::Packet>>>,
     receive_rx: mpsc::Receiver<(SocketAddr, Vec<u8>)>,
     send_tx: mpsc::Sender<(SocketAddr, Vec<u8>)>,
 ) -> JoinHandle<()> {
     let peer_manager_clone = peer_manager.clone();
+    let value_store_clone = value_store.clone();
 
     std::thread::spawn(move || {
         while is_running.load(std::sync::atomic::Ordering::Relaxed) {
@@ -61,6 +64,7 @@ pub fn process_incoming_requests(
                     &packet,
                     &peer,
                     peer_manager_clone.clone(),
+                    value_store_clone.clone(),
                     send_tx,
                 );
             });
@@ -75,6 +79,7 @@ fn handle_request(
     packet: &structures::Packet,
     peer: &structures::Peer,
     peer_manager: Arc<Mutex<PeerManager>>,
+    value_store: Arc<Mutex<ValueStore>>,
     send_tx: mpsc::Sender<(SocketAddr, Vec<u8>)>,
 ) {
     let message = match &packet.message {
@@ -116,6 +121,17 @@ fn handle_request(
                 node_id: local_node_id.to_string(),
                 transaction_id: packet.transaction_id.clone(),
                 message: structures::Message::Response(structures::Response::FindNode(nodes)),
+            };
+
+            send_packet(&response, &peer.address, send_tx).unwrap();
+        }
+        structures::Request::Store(key, value) => {
+            value_store.lock().unwrap().store(key, value);
+
+            let response = structures::Packet {
+                node_id: local_node_id.to_string(),
+                transaction_id: packet.transaction_id.clone(),
+                message: structures::Message::Response(structures::Response::Store),
             };
 
             send_packet(&response, &peer.address, send_tx).unwrap();

@@ -42,11 +42,17 @@ pub enum Response {
     Pong,
     Store,
     FindNode(Vec<FoundNode>),
-    FindValue(Vec<u8>),
+    FindValue(FoundValue),
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
 pub struct FoundNode {
     pub address: SocketAddr,
     pub node_id: String,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]
+pub enum FoundValue {
+    Value(Vec<u8>),
+    Nodes(Vec<FoundNode>),
 }

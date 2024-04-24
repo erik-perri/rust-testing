@@ -1,9 +1,9 @@
 use chrono::DateTime;
 use std::collections::VecDeque;
-use std::env;
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicBool;
 use std::sync::{mpsc, Arc, Mutex};
+use std::{env, thread};
 
 use crate::messages::{
     find_nearby_peers, process_incoming_requests, send_packet, wait_for_response,
@@ -22,6 +22,7 @@ mod server;
 mod structures;
 mod terminal;
 mod utilities;
+mod values;
 
 fn main() {
     let arguments =
@@ -34,6 +35,11 @@ fn main() {
         .unwrap_or_else(|error| fatal_log(error));
 
     debug_log(format!("Loaded {} peers", peer_manager.to_vec().len()));
+
+    let value_store =
+        values::ValueStore::new(&arguments.values_file).unwrap_or_else(|error| fatal_log(error));
+
+    debug_log(format!("Loaded {} values", value_store.len()));
 
     let (receive_tx, receive_rx): (
         mpsc::Sender<(SocketAddr, Vec<u8>)>,
@@ -69,6 +75,8 @@ fn main() {
         Arc::new(Mutex::new(VecDeque::new()));
 
     let peer_manager = Arc::new(Mutex::new(peer_manager));
+    let value_store = Arc::new(Mutex::new(value_store));
+
     let is_running_clone = is_running.clone();
 
     let mut terminal = terminal::Terminal::new(|message| println!("{}", message));
@@ -86,7 +94,7 @@ fn main() {
 
     terminal.on_command("add_peer", move |args| {
         if args.len() < 2 {
-            return Err("Invalid command: add_node <ip:port>".to_string());
+            return Err("Usage: add_node <ip:port>".to_string());
         }
 
         let socket_addr = match args[1].parse::<SocketAddr>() {
@@ -110,6 +118,72 @@ fn main() {
             &packet.transaction_id,
         )
         .map(|_| ())
+    });
+
+    let is_running_clone = is_running.clone();
+    let local_node_id = node_state.node_id.clone();
+    let peer_manager_clone = peer_manager.clone();
+    let response_queue_clone = response_queue.clone();
+    let send_tx_clone = send_tx.clone();
+    let value_store_clone = value_store.clone();
+
+    terminal.on_command("store_value", move |args| {
+        if args.len() < 3 {
+            return Err("Usage: store_value <key> <value>".to_string());
+        }
+
+        let key = args[1].clone();
+        let value = args[2].clone();
+
+        if key.len() != 40 {
+            return Err("Key must be a SHA1 hash.".to_string());
+        }
+
+        value_store_clone
+            .lock()
+            .unwrap()
+            .store(&key, value.as_bytes());
+
+        let peers_near_value = peer_manager_clone.lock().unwrap().nearby_peers(&key)?;
+
+        for peer in peers_near_value {
+            let is_running_clone = is_running_clone.clone();
+            let key = key.clone();
+            let local_node_id = local_node_id.clone();
+            let response_queue_clone = response_queue_clone.clone();
+            let send_tx_clone = send_tx_clone.clone();
+            let value = value.clone();
+
+            thread::spawn(move || {
+                let packet = structures::Packet {
+                    node_id: local_node_id.clone(),
+                    message: structures::Message::Request(structures::Request::Store(
+                        key.clone(),
+                        value.as_bytes().to_vec(),
+                    )),
+                    transaction_id: random_sha1_to_string(),
+                };
+
+                send_packet(&packet, &peer.address, send_tx_clone.clone())
+                    .unwrap_or_else(|error| error_log(error));
+
+                let response = wait_for_response(
+                    is_running_clone.clone(),
+                    response_queue_clone.clone(),
+                    &packet.transaction_id,
+                );
+
+                match response {
+                    Ok(_) => debug_log(format!("Stored value on {}", peer.node_id)),
+                    Err(error) => debug_log(format!(
+                        "Failed to store value on {}: {}",
+                        peer.node_id, error
+                    )),
+                }
+            });
+        }
+
+        Ok(())
     });
 
     let peer_manager_clone = peer_manager.clone();
@@ -143,22 +217,23 @@ fn main() {
         Ok(())
     });
 
+    let process_messages_thread = process_incoming_requests(
+        is_running.clone(),
+        node_state.node_id.clone(),
+        peer_manager.clone(),
+        value_store.clone(),
+        response_queue.clone(),
+        receive_rx,
+        send_tx.clone(),
+    );
+
     let is_running_clone = is_running.clone();
     let local_node_id = node_state.node_id.clone();
     let peer_manager_clone = peer_manager.clone();
     let response_queue_clone = response_queue.clone();
     let send_tx_clone = send_tx.clone();
 
-    let process_messages_thread = process_incoming_requests(
-        is_running.clone(),
-        node_state.node_id.clone(),
-        peer_manager.clone(),
-        response_queue.clone(),
-        receive_rx,
-        send_tx.clone(),
-    );
-
-    let find_peers_thread = std::thread::spawn(move || {
+    let find_peers_thread = thread::spawn(move || {
         match find_nearby_peers(
             is_running_clone,
             local_node_id.as_str(),
@@ -186,6 +261,13 @@ fn main() {
         .lock()
         .unwrap()
         .save(&arguments.peer_file)
+        .unwrap_or_else(|error| fatal_log(error));
+
+    debug_log(format!("Saving values to {}", arguments.values_file));
+    value_store
+        .lock()
+        .unwrap()
+        .save(&arguments.values_file)
         .unwrap_or_else(|error| fatal_log(error));
 }
 
