@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 pub struct NodeState {
+    pub buckets: Vec<VecDeque<Peer>>,
     pub node_id: String,
+    pub values: HashMap<String, Vec<u8>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Debug)]

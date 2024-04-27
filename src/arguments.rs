@@ -1,9 +1,7 @@
 pub struct Arguments {
     pub bind_address: String,
-    pub peer_file: String,
     pub port: u16,
     pub state_file: String,
-    pub values_file: String,
 }
 
 pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
@@ -23,8 +21,6 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
 
     let mut port: u16 = 16600;
     let mut state_file = String::from("state.bin");
-    let mut peer_file = String::from("peers.bin");
-    let mut values_file = String::from("values.bin");
     let mut bind_address = String::from("0.0.0.0");
 
     let mut current_index = 0;
@@ -82,24 +78,6 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
 
                 current_index += 1;
             }
-            "--peer-file" => {
-                if current_index + 1 >= args.len() {
-                    return Err("No peer file provided.".to_string());
-                }
-
-                peer_file = args[current_index + 1].clone();
-
-                current_index += 1;
-            }
-            "--values-file" => {
-                if current_index + 1 >= args.len() {
-                    return Err("No values file provided.".to_string());
-                }
-
-                values_file = args[current_index + 1].clone();
-
-                current_index += 1;
-            }
             _ => {
                 return Err(format!("Invalid argument provided: \"{}\"", arg));
             }
@@ -110,10 +88,8 @@ pub fn parse_arguments(args: Vec<String>) -> Result<Arguments, String> {
 
     Ok(Arguments {
         bind_address,
-        peer_file,
         port,
         state_file,
-        values_file,
     })
 }
 
@@ -128,7 +104,6 @@ mod tests {
             String::from("--bind-address=255.255.255.255"),
             String::from("--port=1234"),
             String::from("--state-file=override.bin"),
-            String::from("--peer-file=peers.bin"),
         ];
 
         let config = parse_arguments(args).unwrap();
@@ -136,7 +111,6 @@ mod tests {
         assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
         assert_eq!(config.state_file, "override.bin");
-        assert_eq!(config.peer_file, "peers.bin");
     }
 
     #[test]
@@ -149,8 +123,6 @@ mod tests {
             String::from("1234"),
             String::from("--state-file"),
             String::from("override.bin"),
-            String::from("--peer-file"),
-            String::from("peers.bin"),
         ];
 
         let config = parse_arguments(args).unwrap();
@@ -158,7 +130,6 @@ mod tests {
         assert_eq!(config.bind_address, "255.255.255.255");
         assert_eq!(config.port, 1234);
         assert_eq!(config.state_file, "override.bin");
-        assert_eq!(config.peer_file, "peers.bin");
     }
 
     #[test]
@@ -186,7 +157,6 @@ mod tests {
         assert_eq!(config.bind_address, "0.0.0.0");
         assert_eq!(config.port, 16600);
         assert_eq!(config.state_file, "state.bin");
-        assert_eq!(config.peer_file, "peers.bin");
     }
 
     #[test]

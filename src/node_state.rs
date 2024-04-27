@@ -1,4 +1,5 @@
 use crate::structures;
+use std::collections::{HashMap, VecDeque};
 use std::fs::File;
 
 use crate::utilities::lock_file;
@@ -7,7 +8,12 @@ use crate::utilities::random_sha1_to_string;
 pub fn load_node_state(path: &str) -> Result<(structures::NodeState, File), String> {
     if !std::path::Path::new(path).exists() {
         let node_state = structures::NodeState {
+            buckets: vec![
+                VecDeque::with_capacity(crate::peers::BUCKET_SIZE);
+                crate::peers::ID_BITS
+            ],
             node_id: random_sha1_to_string(),
+            values: HashMap::new(),
         };
 
         save_node_state(path, &node_state)?;

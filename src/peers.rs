@@ -1,39 +1,25 @@
 use crate::structures;
 use std::cmp::{max, min};
 use std::collections::{HashMap, VecDeque};
-use std::fs::File;
 use std::net::SocketAddr;
 
-use crate::utilities::{calculate_xor_distance, lock_file};
+use crate::utilities::calculate_xor_distance;
 
-const BUCKET_SIZE: usize = 20;
-const ID_BITS: usize = 160;
+pub const BUCKET_SIZE: usize = 20;
+pub const ID_BITS: usize = 160;
 const FIND_PEER_COUNT: usize = 20;
 
 pub struct PeerManager {
-    _state_lock: File,
     buckets: Vec<VecDeque<structures::Peer>>,
     local_node_id: String,
 }
 
 impl PeerManager {
-    pub fn new(path: &str, local_node_id: &str) -> Result<Self, String> {
-        let buckets: Vec<VecDeque<structures::Peer>>;
-
-        if !std::path::Path::new(path).exists() {
-            buckets = vec![VecDeque::with_capacity(BUCKET_SIZE); ID_BITS];
-
-            PeerManager::save_buckets(path, &buckets)?;
-        } else {
-            let contents = std::fs::read(path)
-                .map_err(|error| format!("Failed to read peer file: {}", error))?;
-
-            buckets = bincode::deserialize(&contents)
-                .map_err(|error| format!("Failed to deserialize peers: {}", error))?;
-        }
-
+    pub fn new(
+        buckets: Vec<VecDeque<structures::Peer>>,
+        local_node_id: &str,
+    ) -> Result<Self, String> {
         Ok(Self {
-            _state_lock: lock_file(path)?,
             buckets,
             local_node_id: local_node_id.to_string(),
         })
@@ -99,6 +85,10 @@ impl PeerManager {
         Ok(peer)
     }
 
+    pub fn buckets(&self) -> Vec<VecDeque<structures::Peer>> {
+        self.buckets.clone()
+    }
+
     pub fn nearby_peers(&self, target_node_id: &str) -> Result<Vec<structures::Peer>, String> {
         let mut peers: HashMap<String, structures::Peer> = self
             .find_nearby_peers(target_node_id, false)?
@@ -124,10 +114,6 @@ impl PeerManager {
         }
 
         Ok(peers.into_iter().map(|(_, peer)| peer).collect())
-    }
-
-    pub fn save(&self, path: &str) -> Result<(), String> {
-        PeerManager::save_buckets(path, &self.buckets)
     }
 
     pub fn to_vec(&self) -> Vec<structures::Peer> {
@@ -232,15 +218,5 @@ impl PeerManager {
         peers.sort_by(|a, b| b.last_seen.cmp(&a.last_seen));
 
         Ok(peers)
-    }
-
-    fn save_buckets(path: &str, buckets: &Vec<VecDeque<structures::Peer>>) -> Result<(), String> {
-        let contents = bincode::serialize(buckets)
-            .map_err(|error| format!("Failed to serialize peers: {}", error))?;
-
-        std::fs::write(path, contents)
-            .map_err(|error| format!("Failed to write peers: {}", error))?;
-
-        Ok(())
     }
 }

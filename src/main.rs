@@ -12,6 +12,7 @@ use colored::Colorize;
 
 use crate::node_state::{load_node_state, save_node_state};
 use crate::server::start_server;
+use crate::structures::NodeState;
 use crate::utilities::random_sha1_to_string;
 
 mod arguments;
@@ -31,13 +32,13 @@ fn main() {
     let (node_state, _node_state_lock) =
         load_node_state(&arguments.state_file).unwrap_or_else(|error| fatal_log(error));
 
-    let peer_manager = peers::PeerManager::new(&arguments.peer_file, &node_state.node_id)
+    let peer_manager = peers::PeerManager::new(node_state.buckets, &node_state.node_id)
         .unwrap_or_else(|error| fatal_log(error));
 
     debug_log(format!("Loaded {} peers", peer_manager.to_vec().len()));
 
     let value_store =
-        values::ValueStore::new(&arguments.values_file).unwrap_or_else(|error| fatal_log(error));
+        values::ValueStore::new(node_state.values).unwrap_or_else(|error| fatal_log(error));
 
     debug_log(format!("Loaded {} values", value_store.len()));
 
@@ -254,21 +255,15 @@ fn main() {
     process_messages_thread.join().unwrap();
 
     debug_log(format!("Saving node state to {}", arguments.state_file));
-    save_node_state(&arguments.state_file, &node_state).unwrap_or_else(|error| fatal_log(error));
-
-    debug_log(format!("Saving peers to {}", arguments.peer_file));
-    peer_manager
-        .lock()
-        .unwrap()
-        .save(&arguments.peer_file)
-        .unwrap_or_else(|error| fatal_log(error));
-
-    debug_log(format!("Saving values to {}", arguments.values_file));
-    value_store
-        .lock()
-        .unwrap()
-        .save(&arguments.values_file)
-        .unwrap_or_else(|error| fatal_log(error));
+    save_node_state(
+        &arguments.state_file,
+        &NodeState {
+            node_id: node_state.node_id,
+            buckets: peer_manager.lock().unwrap().buckets(),
+            values: value_store.lock().unwrap().values(),
+        },
+    )
+    .unwrap_or_else(|error| fatal_log(error));
 }
 
 fn debug_log(message: String) {
